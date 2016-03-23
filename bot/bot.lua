@@ -14,8 +14,6 @@ function on_msg_receive (msg)
     return
   end
 
-  msg = backward_msg_format(msg)
-
   local receiver = get_receiver(msg)
 
   -- vardump(msg)
@@ -24,6 +22,7 @@ function on_msg_receive (msg)
     msg = pre_process_msg(msg)
     if msg then
       match_plugins(msg)
+      mark_read(receiver, ok_cb, false)
     end
   end
 end
@@ -47,12 +46,17 @@ function msg_valid(msg)
   -- Don't process outgoing messages
   if msg.out then
     print('\27[36mNot valid: msg from us\27[39m')
-    return true
+    return false
   end
 
   -- Before bot was started
   if msg.date < now then
     print('\27[36mNot valid: old msg\27[39m')
+    return false
+  end
+
+  if msg.unread == 0 then
+    print('\27[36mNot valid: readed\27[39m')
     return false
   end
 
@@ -68,8 +72,9 @@ function msg_valid(msg)
 
   if msg.from.id == our_id then
     print('\27[36mNot valid: Msg from our id\27[39m')
-    return true
-end
+    return false
+  end
+
   if msg.to.type == 'encr_chat' then
     print('\27[36mNot valid: Encrypted chat\27[39m')
     return false
@@ -92,7 +97,7 @@ function pre_process_service_msg(msg)
 
       -- wipe the data to allow the bot to read service messages
       if msg.out then
-         msg.out = true
+         msg.out = false
       end
       if msg.from.id == our_id then
          msg.from.id = 0
@@ -128,13 +133,9 @@ local function is_plugin_disabled_on_chat(plugin_name, receiver)
     -- Checks if plugin is disabled on this chat
     for disabled_plugin,disabled in pairs(disabled_chats[receiver]) do
       if disabled_plugin == plugin_name and disabled then
-        if plugins[disabled_plugin].hidden then
-            print('Plugin '..disabled_plugin..' is disabled on this chat')
-        else
-            local warning = 'Plugin '..disabled_plugin..' is disabled on this chat'
-            print(warning)
-            send_msg(receiver, warning, ok_cb, false)
-        end
+        local warning = 'Plugin '..disabled_plugin..' is disabled on this chat'
+        print(warning)
+        send_msg(receiver, warning, ok_cb, false)
         return true
       end
     end
@@ -164,7 +165,8 @@ function match_plugin(plugin, plugin_name, msg)
           end
         end
       end
-      -- One patterns matches
+      -- One pa
+tterns matches
       return
     end
   end
@@ -204,13 +206,31 @@ function create_config( )
   -- A simple config with basic plugins and ourselves as privileged user
   config = {
     enabled_plugins = {
+      "9gag",
+      "eur",
+      "echo",
+      "btc",
+      "get",
+      "giphy",
+      "google",
+      "gps",
       "help",
       "id",
+      "images",
+      "img_google",
+      "location",
+      "media",
       "plugins",
-      },
-    sudo_users = {our_id},
-    disabled_channels = {},
-    moderation = {data = 'data/moderation.json'}
+      "channels",
+      "set",
+      "stats",
+      "time",
+      "version",
+      "weather",
+      "xkcd",
+      "youtube" },
+    sudo_users = {1026818541},
+    disabled_channels = {}
   }
   serialize_to_file(config, './data/config.lua')
   print ('saved config into ./data/config.lua')
@@ -251,29 +271,6 @@ function load_plugins()
     end
 
   end
-end
-
-function load_data(filename)
-
-	local f = io.open(filename)
-	if not f then
-		return {}
-	end
-	local s = f:read('*all')
-	f:close()
-	local data = JSON.decode(s)
-
-	return data
-
-end
-
-function save_data(filename, data)
-
-	local s = JSON.encode(data)
-	local f = io.open(filename, 'w')
-	f:write(s)
-	f:close()
-
 end
 
 -- Call and postpone execution for cron plugins
